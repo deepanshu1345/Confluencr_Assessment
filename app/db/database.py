@@ -1,3 +1,4 @@
+from urllib.parse import urlparse
 import asyncpg
 from typing import AsyncGenerator
 from app.core.config import settings
@@ -63,6 +64,18 @@ async def init_tables(db_pool: asyncpg.Pool) -> None:
             await conn.execute(TRANSACTIONS_IMMUTABLE_SQL)
 
 
+def pool_kwargs(dsn: str) -> dict:
+    """
+    Extra asyncpg settings for the target database.
+    Supabase requires SSL, and its pooler (PgBouncer) does not support
+    prepared statements, so the statement cache is disabled for it.
+    """
+    host = urlparse(dsn).hostname or ""
+    if host.endswith(".supabase.co") or host.endswith(".supabase.com"):
+        return {"ssl": "require", "statement_cache_size": 0}
+    return {}
+
+
 async def init_db_pool() -> asyncpg.Pool:
     """Initialize the asyncpg connection pool and setup tables."""
     global pool
@@ -71,6 +84,7 @@ async def init_db_pool() -> asyncpg.Pool:
             dsn=settings.DATABASE_URL,
             min_size=2,
             max_size=10,
+            **pool_kwargs(settings.DATABASE_URL),
         )
         await init_tables(pool)
     return pool
