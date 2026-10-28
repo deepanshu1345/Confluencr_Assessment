@@ -1,0 +1,1 @@
+"""FastAPI Assessment Application package."""
